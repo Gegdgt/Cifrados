@@ -119,3 +119,91 @@ En un entorno real de producción se deben considerar al menos los siguientes as
    Debe combinarse con un MAC o usar un modo autenticado (ej. ChaCha20-Poly1305).
 
 ---
+
+# Parte 3 – Análisis de Seguridad del Stream Cipher
+
+## 3.1 Seguridad del Generador Pseudoaleatorio
+
+El sistema implementado utiliza `random.Random`, que está basado en el algoritmo **Mersenne Twister**.
+
+Aunque es determinístico y útil para propósitos educativos, **no es criptográficamente seguro**.
+
+### Problemas principales:
+
+* Puede predecirse si se conocen suficientes salidas.
+* No está diseñado para aplicaciones de seguridad.
+* Es vulnerable a ataques de reconstrucción de estado interno.
+
+### Impacto
+
+Si un atacante logra predecir el keystream, puede descifrar todos los mensajes cifrados con esa clave.
+
+---
+
+## 3.2 Ataque por Reutilización del Keystream
+
+Si se usa la misma clave sin ningún valor adicional (nonce/IV), el keystream será idéntico.
+
+Esto permite el ataque:
+
+```
+C1 ⊕ C2 = M1 ⊕ M2
+```
+
+Esto elimina completamente el keystream del cálculo.
+
+### Consecuencia
+
+* Un atacante puede recuperar información parcial.
+* Si conoce uno de los mensajes, puede recuperar el otro.
+* Se rompe la confidencialidad.
+
+---
+
+## 3.3 Sensibilidad a la Clave
+
+El uso de SHA-256 para derivar el seed introduce el efecto avalancha:
+
+* Cambios mínimos en la clave generan cambios grandes en el keystream.
+* Esto es positivo desde el punto de vista criptográfico.
+
+Sin embargo:
+
+* No hay protección contra ataques de fuerza bruta.
+* Si la clave es débil, el sistema es vulnerable.
+
+---
+
+## 3.4 Ausencia de Autenticación
+
+El sistema implementado solo cifra datos, pero **no protege contra modificaciones**.
+
+Un atacante podría:
+
+* Alterar bits del ciphertext.
+* Cambiar el mensaje descifrado sin conocer la clave.
+
+Esto se debe a que el cifrado XOR es completamente maleable.
+
+Ejemplo:
+
+Si un atacante cambia un bit en el ciphertext, ese mismo bit cambiará en el mensaje descifrado.
+
+---
+
+## 3.5 Comparación con Implementaciones Reales
+
+En producción, un sistema seguro debería:
+
+* Usar un generador criptográficamente seguro.
+* Usar un nonce único por mensaje.
+* Incluir autenticación (MAC o modo autenticado).
+* Derivar claves con funciones resistentes a fuerza bruta.
+
+Ejemplos reales:
+
+* ChaCha20
+* AES en modo CTR con autenticación (GCM)
+* ChaCha20-Poly1305
+
+---
